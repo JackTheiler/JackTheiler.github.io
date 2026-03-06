@@ -1,0 +1,234 @@
+<!-- =========================
+Lab 7 — Part 2.2 (SliderControl + Fuse Search)
+Save as: lab7_2_2.html
+
+REQUIRES: brinton_data_lab7.csv in SAME folder as this HTML
+CSV columns expected: name,latitude,longitude,time
+"time" must be a sortable date or year. Example: 1/15/1932 or 1932
+========================= -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lab 7 Part 2.2 — SliderControl + Fuse Search</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js" crossorigin=""></script>
+
+    <!-- SliderControl + Fuse + LeafletFuse (same sources as handout) -->
+    <script src="https://dsps.lib.uiowa.edu/placing/public/leafletSlider-1.0.2/leaflet.SliderControl.min.js"></script>
+    <script src="https://dsps.lib.uiowa.edu/placing/public/fuse-1.2.1/fuse.min.js"></script>
+    <script src="https://dsps.lib.uiowa.edu/placing/public/leafletFuseSearch-noVersion/leafletfuse.js"></script>
+    <link rel="stylesheet" href="https://dsps.lib.uiowa.edu/placing/public/leafletFuseSearch-noVersion/leafletfuse.css" type="text/css" />
+
+    <!-- jQuery + jQuery UI + touch punch (use https to avoid mixed-content problems) -->
+    <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.9.2/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css" type="text/css" />
+    <script src="https://dsps.lib.uiowa.edu/placing/public/jqueryUiTouchPunch-0.2.2/jquery.ui.touch-punch.min.js"></script>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <script>
+      // ----------------------------
+      // 1) MAP + BASEMAP
+      // ----------------------------
+      var map = L.map("map").setView([41.5, -93.5], 6); // change to your area if needed
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      // ----------------------------
+      // 2) CSV -> GEOJSON HELPERS
+      // ----------------------------
+      function parseTimeToNumber(t) {
+        // Goal: numeric value for SliderControl.
+        // If your time is a year like "1932", this returns 1932.
+        // If your time is a date like "1/15/1932", this returns milliseconds.
+        var s = (t || "").trim();
+        if (/^\d{4}$/.test(s)) return Number(s);
+
+        // Try M/D/YYYY or MM/DD/YYYY
+        var parts = s.split("/");
+        if (parts.length === 3) {
+          var m = Number(parts[0]);
+          var d = Number(parts[1]);
+          var y = Number(parts[2]);
+          return Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+        }
+
+        // Fallback: try Date.parse
+        var ms = Date.parse(s);
+        if (!Number.isNaN(ms)) return ms;
+
+        return null;
+      }
+
+      function parseCsvToGeoJson(csvText) {
+        var lines = csvText.trim().split(/\r?\n/);
+        var header = lines.shift().split(",").map(function (h) { return h.trim(); });
+
+        var iName = header.indexOf("name");
+        var iLat = header.indexOf("latitude");
+        var iLon = header.indexOf("longitude");
+        var iTime = header.indexOf("time");
+
+        var feats = [];
+
+        lines.forEach(function (line) {
+          if (!line.trim()) return;
+          var cols = line.split(",").map(function (c) { return c.trim(); });
+
+          var name = cols[iName];
+          var lat = Number(cols[iLat]);
+          var lon = Number(cols[iLon]);
+          var timeRaw = cols[iTime];
+          var timeVal = parseTimeToNumber(timeRaw);
+
+          if (!Number.isFinite(lat) || !Number.isFinite(lon) || timeVal === null) return;
+
+          feats.push({
+            type: "Feature",
+            properties: {
+              name: name,
+              time: timeVal,     // MUST be named "time" for the slider
+              time_raw: timeRaw  // for display
+            },
+            geometry: {
+              type: "Point",
+              coordinates: [lon, lat]
+            }
+          });
+        });
+
+        // sort ascending by time (required)
+        feats.sort(function (a, b) {
+          return a.properties.time - b.properties.time;
+        });
+
+        return { type: "FeatureCollection", features: feats };
+      }
+
+      // ----------------------------
+      // 3) POPUPS + STYLES
+      // ----------------------------
+      var blueMarkerOptions = {
+        radius: 7,
+        fillOpacity: 0.6,
+        opacity: 1,
+        weight: 1
+      };
+
+      function onEachFeature(feature, layer) {
+        // needed for fuse-search plugin to open the right popup
+        feature.layer = layer;
+
+        var p = feature.properties;
+        layer.bindPopup("<b>" + p.name + "</b><br/>Time: " + p.time_raw);
+      }
+
+      // ----------------------------
+      // 4) LOAD CSV, BUILD LAYERS, ADD SLIDER + SEARCH
+      // ----------------------------
+      fetch("./brinton_data_lab7.csv")
+        .then(function (r) {
+          if (!r.ok) throw new Error("Could not load brinton_data_lab7.csv (put it in the same folder).");
+          return r.text();
+        })
+        .then(function (csvText) {
+          var brintonJson = parseCsvToGeoJson(csvText);
+
+          // Base layer (always visible)
+          var firstlayer = L.geoJson(brintonJson, {
+            pointToLayer: function (feature, latlng) {
+              return L.circleMarker(latlng, blueMarkerOptions);
+            },
+            onEachFeature: onEachFeature
+          }).addTo(map);
+
+          // Timeline layer (controlled by slider)
+          var timelineLayer = L.geoJson(brintonJson, {
+            pointToLayer: function (feature, latlng) {
+              return L.circleMarker(latlng, blueMarkerOptions);
+            },
+            onEachFeature: onEachFeature
+          });
+
+          // Search layer (optional: you can style differently)
+          var searchLayer = L.geoJson(brintonJson, {
+            pointToLayer: function (feature, latlng) {
+              return L.circleMarker(latlng, blueMarkerOptions);
+            },
+            onEachFeature: onEachFeature
+          });
+
+          // SLIDER CONTROL (reads feature.properties.time)
+          var sliderControl = L.control.sliderControl({
+            position: "topright",
+            layer: timelineLayer
+          });
+
+          map.addControl(sliderControl);
+          sliderControl.startSlider();
+
+          // Add timeline layer AFTER starting slider
+          timelineLayer.addTo(map);
+
+          // FUSE SEARCH (index by name)
+          var searchOptions = {
+            position: "topright",
+            title: "Search",
+            placeholder: "Search by name",
+            maxResultLength: 10,
+            threshold: 0.35,
+            showResultFct: function (feature, container) {
+              var props = feature.properties;
+              var name = L.DomUtil.create("b", null, container);
+              name.textContent = props.name;
+              container.appendChild(L.DomUtil.create("br", null, container));
+              container.appendChild(document.createTextNode("Time: " + props.time_raw));
+            }
+          };
+
+          var searchControl = L.control.fuseSearch(searchOptions);
+          searchControl.addTo(map);
+
+          // index features: (feature array, fields to search)
+          searchControl.indexFeatures(brintonJson.features, ["name"]);
+
+          // Optional layer toggle (like the handout style)
+          var overlays = {
+            "All points": firstlayer,
+            "Timeline points": timelineLayer,
+            "Search points": searchLayer
+          };
+          L.control.layers(null, overlays, { collapsed: true }).addTo(map);
+
+          // Fit view to your points
+          if (firstlayer.getBounds().isValid()) map.fitBounds(firstlayer.getBounds(), { padding: [20, 20] });
+        })
+        .catch(function (err) {
+          console.error(err);
+          alert(err.message || "Error loading data.");
+        });
+    </script>
+  </body>
+</html>
