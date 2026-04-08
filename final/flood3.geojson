@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "flood3",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::4269" } },
+"features": [
+{ "type": "Feature", "properties": { "OBJECTID": 1, "CALLOUT_ID": "BigPap_CallOut_001", "IMG_TITLE": "FLOODED SOCCER FIELD", "IMG_HEIGHT": 4.95, "IMG_WIDTH": 6.6, "IMG_CPTION": "Submerged soccer fields at Dodge Park in Omaha.\r\nThe soccer fields are about a half-mile inland from\r\nthe Missouri River.", "CASE_NO": "16-07-0398S", "VERSION_ID": "2.3.3.3", "SOURCE_CIT": "BASE3", "SHAPE_Leng": 0.13298126991000001 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ -95.834934305682054, 41.365526710679944 ], [ -95.966502037270061, 41.346188919892427 ] ] ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 2, "CALLOUT_ID": "BigPap_CallOut_002", "IMG_TITLE": "FLOODED AIRFIELD", "IMG_HEIGHT": 4.94, "IMG_WIDTH": 6.6, "IMG_CPTION": "Flooding at the Omaha Eppley Airfield\r\nwith flood waters rising up on levees \r\nall around the airfield. The airfield is\r\nlocated at the upper right corner of\r\nthe image.", "CASE_NO": "16-07-0398S", "VERSION_ID": "2.3.3.3", "SOURCE_CIT": "BASE3", "SHAPE_Leng": 0.08216424284 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ -95.831392044425058, 41.242722385030447 ], [ -95.898398499438031, 41.290273387005925 ] ] ] } }
+]
+}
