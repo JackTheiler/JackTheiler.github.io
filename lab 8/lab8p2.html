@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+ <head>
+ <title>Lab 8 Part 2 | D3</title>
+ <script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
+
+ <style>
+body {
+ position: absolute;
+ font-family: "Proxima Nova", "Montserrat", sans-serif;
+}
+h1, h2 {
+ position: absolute;
+ background: white;
+ left: 10px;
+ font-size: 1.3em;
+ font-weight: 100;
+}
+h2 {
+ top: 30px;
+ font-size: 1em;
+}
+.hover {
+ fill: yellow;
+}
+</style>
+
+ </head>
+ <body>
+<h1>Omaha Flood Risk Map</h1>
+ <h2></h2>
+
+<script>
+var width = 1000;
+var height = 600;
+
+// Create SVG
+var svg = d3.select( "body" )
+ .append( "svg" )
+ .attr( "width", width )
+ .attr( "height", height );
+
+// g will contain geometry elements
+var g = svg.append( "g" );
+
+// Load all three GeoJSON layers
+Promise.all([
+  d3.json("https://jacktheiler.github.io/final/flood5.geojson"),
+  d3.json("https://jacktheiler.github.io/final/flood4.geojson"),
+  d3.json("https://jacktheiler.github.io/final/flood2.geojson")
+]).then(function(data) {
+
+  var floodrisk = data[0];
+  var studyarea = data[1];
+  var watershed = data[2];
+
+  // Set Projection Parameters
+  var projection = d3.geoMercator()
+   .fitSize([width, height], watershed);
+
+  // Create GeoPath function to turn lat/lon into screen coordinates
+  var geoPath = d3.geoPath()
+   .projection( projection );
+
+  // Watershed Boundary
+  g.selectAll(".watershed")
+   .data( watershed.features )
+   .enter()
+   .append( "path" )
+   .attr( "class", "watershed" )
+   .attr( "fill", "none" )
+   .attr( "stroke", "#3182bd" )
+   .attr( "stroke-width", 2 )
+   .attr( "d", geoPath )
+   .on("mouseover", function(d){
+    d3.select("h2").text("Watershed Boundary");
+    d3.select(this).attr("stroke-width", 4);
+   })
+   .on("mouseout", function(d){
+    d3.select("h2").text("");
+    d3.select(this).attr("stroke-width", 2);
+   });
+
+  // FEMA Study Area
+  g.selectAll(".studyarea")
+   .data( studyarea.features )
+   .enter()
+   .append( "path" )
+   .attr( "class", "studyarea" )
+   .attr( "fill", "#74c476" )
+   .attr( "stroke", "#238b45" )
+   .attr( "fill-opacity", 0.25 )
+   .attr( "d", geoPath )
+   .on("mouseover", function(d){
+    d3.select("h2").text("FEMA Study Area");
+    d3.select(this).attr("fill-opacity", 0.5);
+   })
+   .on("mouseout", function(d){
+    d3.select("h2").text("");
+    d3.select(this).attr("fill-opacity", 0.25);
+   });
+
+  // Main Flood Risk Layer
+  g.selectAll(".floodrisk")
+   .data( floodrisk.features )
+   .enter()
+   .append( "path" )
+   .attr( "class", "floodrisk" )
+   .attr( "fill", "#ef3b2c" )
+   .attr( "stroke", "#cb181d" )
+   .attr( "fill-opacity", 0.45 )
+   .attr( "d", geoPath )
+   .on("mouseover", function(d){
+    d3.select("h2").text("Main Flood Risk Layer");
+    d3.select(this).attr("class","floodrisk hover");
+   })
+   .on("mouseout", function(d){
+    d3.select("h2").text("");
+    d3.select(this).attr("class","floodrisk");
+   });
+
+});
+</script>
+ </body>
+</html>
