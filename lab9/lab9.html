@@ -1,0 +1,61 @@
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(leaflet)
+library(htmlwidgets)
+
+# Read the updated CSV
+race_data <- read.csv("Lancaster_popup_ready.csv")
+
+# Get Lancaster County tract geometry
+Lancaster_shapes <- get_acs(
+  geography = "tract",
+  state = "NE",
+  county = "Lancaster",
+  variables = c(total_pop = "B03002_001"),
+  geometry = TRUE,
+  output = "wide",
+  year = 2022
+)
+
+# Join the CSV data to the tract map shapes
+Lancaster_map <- Lancaster_shapes |>
+  left_join(race_data, by = "GEOID")
+
+# Color the map by percent White
+pal <- colorNumeric(
+  palette = "Blues",
+  domain = Lancaster_map$mapped_percent
+)
+
+# Create the map
+m <- leaflet(Lancaster_map) |>
+  addProviderTiles("CartoDB.Positron") |>
+  addPolygons(
+    fillColor = ~pal(mapped_percent),
+    fillOpacity = 0.7,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>", tract_name, "</b><br>",
+      popup_text
+    ),
+    label = ~paste0(
+      tract_name, ": ",
+      mapped_percent,
+      "% White"
+    )
+  ) |>
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = ~mapped_percent,
+    title = "% White",
+    opacity = 0.7
+  )
+
+# Show the map
+m
+
+# Save the map as an HTML file
+saveWidget(m, "Lancaster_race_map.html", selfcontained = TRUE)
